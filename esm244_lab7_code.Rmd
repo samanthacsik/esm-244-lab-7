@@ -1,0 +1,22 @@
+---
+title: "ESM 244 Lab 7"
+author: "Sam Csik"
+date: "2/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tmap)
+library(sf)
+library(spatstat)
+library(maptools)
+library(sp)
+library(raster)
+library(gstat)
+```
+
