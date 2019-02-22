@@ -162,3 +162,100 @@ suit_hab <- mask(sst_hab, par_hab)
 plot(suit_hab)
 ```
 
+Part 2. Point pattern analysis
+
+An analysis of red tree voels in Humbolt County
+```{r}
+voles <- read_sf(dsn = 'redtreevoledata', layer = "ds033") %>% 
+  dplyr::select(COUNTY) %>% 
+  filter(COUNTY == "HUM") %>% 
+  st_transform(crs = 4326)
+
+# plot(voles)
+
+# Get Humboldt County outline
+humboldt <- read_sf(dsn = 'redtreevoledata', layer = "california_county_shape_file") %>% 
+  filter(NAME == "Humboldt") %>% 
+  dplyr::select(NAME)
+
+st_crs(humboldt) <- 4326
+
+# plot(humboldt)
+
+# Plot them together: 
+tm_shape(humboldt) +
+  tm_fill() +
+  tm_shape(voles) +
+  tm_dots(size = 0.2)
+
+ggplot() +
+  geom_sf(data = humboldt) +
+  geom_sf(data = voles)
+
+ggsave("humvoles.png",
+       units = "in",
+       width = 4, height = 6, 
+       dpi = 300)
+```
+
+we want to explore point patterns a few different ways:
+
+-quadrat analysis
+-distance based (neighbor analysis, G-function and K-function)
+
+```{r}
+voles_sp <- as(voles, 'Spatial')
+voles_ppp <- as(voles_sp, "ppp")
+
+humboldt_sp <- as(humboldt, "Spatial")
+humboldt_win <- as(humboldt_sp, "owin")
+
+voles_pb <- ppp(voles_ppp$x, voles_ppp$y, window = humboldt_win)
+plot(voles_pb)
+```
+
+Quadrat test:
+```{r}
+vole_qt <- quadrat.test(voles_pb, nx = 4, ny = 10)
+
+# testing the null hypothesis of spatial evenness (although you'll hear it called a test for CSR)
+vole_qt
+
+# we would conclude that these events do not conclude spatial evenness
+plot(voles_pb)
+plot(vole_qt, add = TRUE, cex = 0.4)
+```
+
+Plotting kernal densities for spatial data:
+
+```{r}
+point_density <- density(voles_pb, sigma = 0.02)
+plot(point_density) # risky bc the overall impression they give depends on the creator-specified bandwidth
+
+vole_raster <- raster(point_density, crs = wgs84) # tmap likes plotting raster data
+
+tm_shape(vole_raster) + # forced point-density into raster data to plot using tm
+  tm_raster()
+```
+
+Nearest neighbor:
+
+G-function: considers the distnace eof each observation to its NEAREST neighbor
+
+K-function: considers how close all neighboring observations are to an event (concentric circles)
+
+```{r}
+r <- seq(0,0.15, by = 0.005)
+
+gfunction <- envelope(voles_pb, fun = Gest, r = r, nsim = 100, nrank = 2) # Sig level of Monte Carlo = 0.04
+
+plot(gfunction$obs ~ gfunction$r, type = "l", col = "black", lty = 11)
+lines(gfunction$hi ~ gfunction$r, type = "l", col = "blue", lty = 8)
+lines(gfunction$theo ~ gfunction$r, type = "l", col = "red", lty = 6)
+lines(gfunction$lo ~ gfunction$r, type = "l", col = "green", lty = 4)
+
+# more clustered than csr that more closer neighbors than we would expect if they were truly independent
+
+#K/L function: asking about how close all neighbors are to every event within a spatial window
+```
+
